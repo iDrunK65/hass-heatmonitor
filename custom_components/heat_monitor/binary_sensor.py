@@ -6,6 +6,8 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.typing import HomeAssistantType
@@ -130,7 +132,7 @@ class TempAlertBinarySensor(BinarySensorEntity):
 
     def _get_sensor_info(self):
         """Récupère le friendly name et l'area du capteur depuis l'entity registry."""
-        entity_registry = self._hass.helpers.entity_registry.async_get()
+        entity_registry = er.async_get(self._hass)
         entity_entry = entity_registry.async_get(self._sensor_entity_id)
         
         sensor_friendly_name = None
@@ -142,7 +144,7 @@ class TempAlertBinarySensor(BinarySensorEntity):
             
             # Récupérer l'area si disponible
             if entity_entry.area_id:
-                area_registry = self._hass.helpers.area_registry.async_get()
+                area_registry = ar.async_get(self._hass)
                 area_entry = area_registry.async_get_area(entity_entry.area_id)
                 if area_entry:
                     sensor_area = area_entry.name
