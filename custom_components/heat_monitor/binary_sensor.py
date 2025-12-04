@@ -19,17 +19,6 @@ from .const import (
 )
 
 
-def _normalize_name(name: str) -> str:
-    """Normalise un nom pour être utilisé dans un entity_id."""
-    # Convertir en minuscules et remplacer les espaces par des underscores
-    normalized = name.lower().strip()
-    # Remplacer les espaces et caractères spéciaux par des underscores
-    normalized = "".join(c if c.isalnum() or c == "_" else "_" for c in normalized)
-    # Supprimer les underscores multiples
-    normalized = "_".join(filter(None, normalized.split("_")))
-    return normalized
-
-
 async def async_setup_entry(
         hass: HomeAssistantType,
         entry: ConfigEntry,
@@ -66,9 +55,7 @@ class TempAlertBinarySensor(BinarySensorEntity):
         self._attr_name = name
         self._sensor_entity_id = sensor_entity_id
 
-        # Format: heatmonitor_<name>_<item>
-        normalized_name = _normalize_name(name)
-        self._attr_unique_id = f"heatmonitor_{normalized_name}_alert"
+        self._attr_unique_id = f"{entry_id}_alert"
         self._attr_is_on = False
         self._out_of_range = False  # état logique interne
 
