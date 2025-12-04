@@ -19,6 +19,17 @@ from .const import (
 )
 
 
+def _normalize_name(name: str) -> str:
+    """Normalise un nom pour être utilisé dans un entity_id."""
+    # Convertir en minuscules et remplacer les espaces par des underscores
+    normalized = name.lower().strip()
+    # Remplacer les espaces et caractères spéciaux par des underscores
+    normalized = "".join(c if c.isalnum() or c == "_" else "_" for c in normalized)
+    # Supprimer les underscores multiples
+    normalized = "_".join(filter(None, normalized.split("_")))
+    return normalized
+
+
 async def async_setup_entry(
         hass: HomeAssistantType,
         entry: ConfigEntry,
@@ -55,7 +66,9 @@ class TempAlertBinarySensor(BinarySensorEntity):
         self._attr_name = name
         self._sensor_entity_id = sensor_entity_id
 
-        self._attr_unique_id = f"{entry_id}_alert"
+        # Format: heatmonitor_<name>_<item>
+        normalized_name = _normalize_name(name)
+        self._attr_unique_id = f"heatmonitor_{normalized_name}_alert"
         self._attr_is_on = False
         self._out_of_range = False  # état logique interne
 
@@ -117,6 +130,33 @@ class TempAlertBinarySensor(BinarySensorEntity):
             self._unsub_temp_update_listener()
             self._unsub_temp_update_listener = None
 
+    def _get_sensor_info(self):
+        """Récupère le friendly name et l'area du capteur depuis l'entity registry."""
+        entity_registry = self._hass.helpers.entity_registry.async_get()
+        entity_entry = entity_registry.async_get(self._sensor_entity_id)
+        
+        sensor_friendly_name = None
+        sensor_area = None
+        
+        if entity_entry:
+            # Récupérer le friendly name
+            sensor_friendly_name = entity_entry.name or entity_entry.original_name
+            
+            # Récupérer l'area si disponible
+            if entity_entry.area_id:
+                area_registry = self._hass.helpers.area_registry.async_get()
+                area_entry = area_registry.async_get_area(entity_entry.area_id)
+                if area_entry:
+                    sensor_area = area_entry.name
+        
+        # Si pas de friendly name dans le registry, utiliser celui de l'état
+        if not sensor_friendly_name:
+            state_obj = self._hass.states.get(self._sensor_entity_id)
+            if state_obj:
+                sensor_friendly_name = state_obj.attributes.get("friendly_name")
+        
+        return sensor_friendly_name, sensor_area
+
     @callback
     def _handle_sensor_state_change(self, initial: bool = False):
         """Check la valeur du capteur, met à jour l'alerte et fire les events."""
@@ -136,9 +176,14 @@ class TempAlertBinarySensor(BinarySensorEntity):
         self._out_of_range = not in_range
         self._attr_is_on = self._out_of_range
 
+        # Récupérer les infos du capteur
+        sensor_friendly_name, sensor_area = self._get_sensor_info()
+
         # Mise à jour attributs (lire les valeurs actuelles depuis hass.data)
         self._attr_extra_state_attributes = {
             "sensor": self._sensor_entity_id,
+            "sensor_friendly_name": sensor_friendly_name,
+            "sensor_area": sensor_area,
             "min_temp": self._min_temp,
             "max_temp": self._max_temp,
             "current_temp": value,
