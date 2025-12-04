@@ -3,7 +3,7 @@
 		"name": "Heat Monitor",
 		"version": "0.0.1",
 		"documentation": "https://github.com/iDrunK65/hass-addons",
-		"requirements": [],
+		"dependencies": [],
 		"codeowners": ["@iDrunK65"],
 		"config_flow": true,
 		"iot_class": "local_push"
