@@ -7,10 +7,7 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import (
-    async_track_state_change_event,
-    async_track_event,
-)
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.typing import HomeAssistantType
 
 from .const import (
@@ -103,8 +100,7 @@ class TempAlertBinarySensor(BinarySensorEntity):
         )
 
         # Écouter les mises à jour de température depuis les number entities
-        self._unsub_temp_update_listener = async_track_event(
-            self._hass,
+        self._unsub_temp_update_listener = self._hass.bus.async_listen(
             f"{DOMAIN}_temp_updated",
             _temp_update_listener,
         )
