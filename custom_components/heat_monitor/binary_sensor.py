@@ -56,7 +56,7 @@ class TempAlertBinarySensor(BinarySensorEntity):
         self._attr_name = name
         self._sensor_entity_id = sensor_entity_id
 
-        self._attr_unique_id = f"{entry_id}_alert"
+        self._attr_unique_id = f"heatmonitor_{entry_id}_alert"
         self._attr_is_on = False
         self._out_of_range = False  # état logique interne
 
@@ -73,6 +73,7 @@ class TempAlertBinarySensor(BinarySensorEntity):
 
         self._unsub_state_listener = None
         self._unsub_temp_update_listener = None
+        self._unsub_registry_listener = None
 
     @property
     def _min_temp(self) -> float:
@@ -107,6 +108,14 @@ class TempAlertBinarySensor(BinarySensorEntity):
                 # Recalculer avec les nouvelles valeurs
                 self._handle_sensor_state_change(initial=False)
 
+        @callback
+        def _registry_updated(event):
+            """Écoute les changements dans l'entity registry pour mettre à jour les attributs."""
+            # Vérifier si c'est une mise à jour de notre entité surveillée
+            if event.data.get("action") in ("update", "create") and event.data.get("entity_id") == self._sensor_entity_id:
+                # Mettre à jour les attributs si l'entité surveillée a été modifiée
+                self._update_attributes_only()
+
         self._unsub_state_listener = async_track_state_change_event(
             self._hass, [self._sensor_entity_id], _sensor_state_listener
         )
@@ -115,6 +124,12 @@ class TempAlertBinarySensor(BinarySensorEntity):
         self._unsub_temp_update_listener = self._hass.bus.async_listen(
             f"{DOMAIN}_temp_updated",
             _temp_update_listener,
+        )
+
+        # Écouter les changements dans l'entity registry (y compris les changements de zone)
+        self._unsub_registry_listener = self._hass.bus.async_listen(
+            "entity_registry_updated",
+            _registry_updated,
         )
 
         # Évalue l'état une première fois sans envoyer d'event
@@ -128,6 +143,9 @@ class TempAlertBinarySensor(BinarySensorEntity):
         if self._unsub_temp_update_listener:
             self._unsub_temp_update_listener()
             self._unsub_temp_update_listener = None
+        if self._unsub_registry_listener:
+            self._unsub_registry_listener()
+            self._unsub_registry_listener = None
 
     def _get_sensor_info(self):
         """Récupère le friendly name et l'area du capteur depuis l'entity registry."""
@@ -155,6 +173,37 @@ class TempAlertBinarySensor(BinarySensorEntity):
                 sensor_friendly_name = state_obj.attributes.get("friendly_name")
         
         return sensor_friendly_name, sensor_area
+
+    @callback
+    def _update_attributes_only(self):
+        """Met à jour uniquement les attributs sans recalculer l'état."""
+        state_obj = self._hass.states.get(self._sensor_entity_id)
+        if not state_obj:
+            return
+
+        try:
+            value = float(state_obj.state)
+        except (ValueError, TypeError):
+            value = None
+
+        # Récupérer les infos du capteur (y compris la zone mise à jour)
+        sensor_friendly_name, sensor_area = self._get_sensor_info()
+
+        # Mettre à jour uniquement les attributs
+        current_attrs = self._attr_extra_state_attributes.copy()
+        current_attrs.update({
+            "sensor": self._sensor_entity_id,
+            "sensor_friendly_name": sensor_friendly_name,
+            "sensor_area": sensor_area,
+            "min_temp": self._min_temp,
+            "max_temp": self._max_temp,
+        })
+        if value is not None:
+            current_attrs["current_temp"] = value
+            current_attrs["in_range"] = self._min_temp <= value <= self._max_temp
+
+        self._attr_extra_state_attributes = current_attrs
+        self.schedule_update_ha_state()
 
     @callback
     def _handle_sensor_state_change(self, initial: bool = False):
