@@ -9,7 +9,7 @@ from .const import DOMAIN, CONF_NAME, CONF_SENSOR, CONF_MIN_TEMP, CONF_MAX_TEMP
 
 
 class TempMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Config flow pour Temperature Monitor."""
+    """Config flow pour Heat Monitor."""
 
     VERSION = 1
 
@@ -19,7 +19,7 @@ class TempMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             # Nom par défaut si vide
             if not user_input.get(CONF_NAME):
-                user_input[CONF_NAME] = f"Temp Monitor {user_input[CONF_SENSOR]}"
+                user_input[CONF_NAME] = f"Heat Monitor {user_input[CONF_SENSOR]}"
 
             # Un config_entry par capteur (éviter les doublons)
             await self.async_set_unique_id(user_input[CONF_SENSOR])

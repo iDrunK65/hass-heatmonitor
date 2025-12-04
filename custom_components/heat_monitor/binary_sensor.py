@@ -7,15 +7,16 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import (
+    async_track_state_change_event,
+    async_track_event,
+)
 from homeassistant.helpers.typing import HomeAssistantType
 
 from .const import (
     DOMAIN,
     CONF_NAME,
     CONF_SENSOR,
-    CONF_MIN_TEMP,
-    CONF_MAX_TEMP,
     EVENT_OUT_OF_RANGE,
     EVENT_BACK_IN_RANGE,
 )
@@ -27,15 +28,14 @@ async def async_setup_entry(
         async_add_entities: AddEntitiesCallback,
 ):
     """Création des entités pour une config_entry."""
-    data = entry.data
+    # Lire depuis hass.data au lieu de entry.data
+    data = hass.data[DOMAIN][entry.entry_id]
 
     entity = TempAlertBinarySensor(
         hass=hass,
         entry_id=entry.entry_id,
         name=data[CONF_NAME],
         sensor_entity_id=data[CONF_SENSOR],
-        min_temp=data[CONF_MIN_TEMP],
-        max_temp=data[CONF_MAX_TEMP],
     )
 
     async_add_entities([entity])
@@ -52,27 +52,28 @@ class TempAlertBinarySensor(BinarySensorEntity):
             entry_id: str,
             name: str,
             sensor_entity_id: str,
-            min_temp: float,
-            max_temp: float,
     ):
         self._hass = hass
         self._entry_id = entry_id
         self._attr_name = name
         self._sensor_entity_id = sensor_entity_id
-        self._min_temp = float(min_temp)
-        self._max_temp = float(max_temp)
 
         self._attr_unique_id = f"{entry_id}_alert"
         self._attr_is_on = False
         self._out_of_range = False  # état logique interne
 
-        self._attr_extra_state_attributes = {
-            "sensor": sensor_entity_id,
-            "min_temp": self._min_temp,
-            "max_temp": self._max_temp,
-        }
-
         self._unsub_state_listener = None
+        self._unsub_temp_update_listener = None
+
+    @property
+    def _min_temp(self) -> float:
+        """Lit min_temp depuis hass.data."""
+        return self._hass.data[DOMAIN][self._entry_id]["min_temp"]
+
+    @property
+    def _max_temp(self) -> float:
+        """Lit max_temp depuis hass.data."""
+        return self._hass.data[DOMAIN][self._entry_id]["max_temp"]
 
     @property
     def device_info(self):
@@ -81,7 +82,7 @@ class TempAlertBinarySensor(BinarySensorEntity):
             "identifiers": {(DOMAIN, self._entry_id)},
             "name": self.name,
             "manufacturer": "Nicolas",
-            "model": "Temperature Monitor",
+            "model": "Heat Monitor",
         }
 
     async def async_added_to_hass(self):
@@ -90,8 +91,22 @@ class TempAlertBinarySensor(BinarySensorEntity):
         def _sensor_state_listener(event):
             self._handle_sensor_state_change()
 
+        @callback
+        def _temp_update_listener(event):
+            """Écoute les mises à jour de température depuis les number entities."""
+            if event.data.get("entry_id") == self._entry_id:
+                # Recalculer avec les nouvelles valeurs
+                self._handle_sensor_state_change(initial=False)
+
         self._unsub_state_listener = async_track_state_change_event(
             self._hass, [self._sensor_entity_id], _sensor_state_listener
+        )
+
+        # Écouter les mises à jour de température depuis les number entities
+        self._unsub_temp_update_listener = async_track_event(
+            self._hass,
+            f"{DOMAIN}_temp_updated",
+            _temp_update_listener,
         )
 
         # Évalue l'état une première fois sans envoyer d'event
@@ -102,6 +117,9 @@ class TempAlertBinarySensor(BinarySensorEntity):
         if self._unsub_state_listener:
             self._unsub_state_listener()
             self._unsub_state_listener = None
+        if self._unsub_temp_update_listener:
+            self._unsub_temp_update_listener()
+            self._unsub_temp_update_listener = None
 
     @callback
     def _handle_sensor_state_change(self, initial: bool = False):
@@ -122,13 +140,14 @@ class TempAlertBinarySensor(BinarySensorEntity):
         self._out_of_range = not in_range
         self._attr_is_on = self._out_of_range
 
-        # Mise à jour attributs
-        self._attr_extra_state_attributes.update(
-            {
-                "current_temp": value,
-                "in_range": in_range,
-            }
-        )
+        # Mise à jour attributs (lire les valeurs actuelles depuis hass.data)
+        self._attr_extra_state_attributes = {
+            "sensor": self._sensor_entity_id,
+            "min_temp": self._min_temp,
+            "max_temp": self._max_temp,
+            "current_temp": value,
+            "in_range": in_range,
+        }
 
         # Pas d'event au premier calcul (au démarrage), juste sync l'état
         if initial:
