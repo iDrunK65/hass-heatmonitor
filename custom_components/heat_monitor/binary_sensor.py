@@ -52,7 +52,7 @@ class TempAlertBinarySensor(BinarySensorEntity):
             sensor_entity_id: str,
     ):
         self._hass = hass
-        self._entry_id = f"heatmonitor_{entry_id}"
+        self._entry_id = entry_id
         self._attr_name = name
         self._sensor_entity_id = sensor_entity_id
 
@@ -62,7 +62,7 @@ class TempAlertBinarySensor(BinarySensorEntity):
 
         # Initialiser les attributs avec des valeurs par défaut
         self._attr_extra_state_attributes = {
-            "sensor": sensor_entity_id,
+            "sensor": f"heatmonitor_{entry_id}_sensor",
             "sensor_friendly_name": None,
             "sensor_area": None,
             "min_temp": None,
