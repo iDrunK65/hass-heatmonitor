@@ -29,15 +29,32 @@ jobs:
           echo "version=$version" >> $GITHUB_OUTPUT
 
       - name: Create and push tag
+        id: create_tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           tag="v${{ steps.get_version.outputs.version }}"
-          if git rev-parse "$tag" >/dev/null 2>&1; then
-            echo "Tag $tag already exists. Skipping."
+          # check if tag exists on remote
+          if git ls-remote --tags origin | grep -q "refs/tags/$tag$"; then
+            echo "Tag $tag already exists on remote. Skipping tag creation."
+            echo "tag=$tag" >> $GITHUB_OUTPUT
             exit 0
           fi
+          # create and push tag
           git tag -a "$tag" -m "Release $tag"
           git push origin "$tag"
+          echo "tag=$tag" >> $GITHUB_OUTPUT
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        if: steps.create_tag.outcome == 'success'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.create_tag.outputs.tag || format('v{0}', steps.get_version.outputs.version) }}
+          release_name: ${{ format('v{0}', steps.get_version.outputs.version) }}
+          body: ""
+          draft: false
+          prerelease: false
