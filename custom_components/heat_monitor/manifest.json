@@ -1,8 +1,9 @@
 {
 		"domain": "heat_monitor",
 		"name": "Heat Monitor",
-		"version": "0.0.1",
-		"documentation": "https://github.com/iDrunK65/hass-addons",
+		"version": "1.0.0",
+		"documentation": "https://github.com/iDrunK65/hass-heatmonitor",
+		"issue_tracker": "https://github.com/iDrunK65/hass-heatmonitor/issues",
 		"dependencies": [],
 		"codeowners": ["@iDrunK65"],
 		"config_flow": true,
