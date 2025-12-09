@@ -42,7 +42,7 @@ class BaseTempNumber(NumberEntity):
         return {
             "identifiers": {(DOMAIN, self._entry_id)},
             "name": data["name"],
-            "manufacturer": "Nicolas",
+            "manufacturer": "iDrunK",
             "model": "Heat Monitor",
         }
 
@@ -87,7 +87,7 @@ class MinTempNumber(BaseTempNumber):
         self._data_key = CONF_MIN_TEMP
         data = hass.data[DOMAIN][entry_id]
         self._attr_name = f"{data['name']} Min Temp"
-        self._attr_unique_id = f"{entry_id}_min_temp"
+        self._attr_unique_id = f"heatmonitor_{entry_id}_min_temp"
 
 
 class MaxTempNumber(BaseTempNumber):
@@ -98,5 +98,5 @@ class MaxTempNumber(BaseTempNumber):
         self._data_key = CONF_MAX_TEMP
         data = hass.data[DOMAIN][entry_id]
         self._attr_name = f"{data['name']} Max Temp"
-        self._attr_unique_id = f"{entry_id}_max_temp"
+        self._attr_unique_id = f"heatmonitor_{entry_id}_max_temp"
 

@@ -1,4 +1,4 @@
-name: Tag from manifest
+name: Release
 
 on:
   push:

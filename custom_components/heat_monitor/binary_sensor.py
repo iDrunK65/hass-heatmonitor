@@ -90,8 +90,8 @@ class TempAlertBinarySensor(BinarySensorEntity):
         """Permet à HA de voir ça comme un 'appareil'."""
         return {
             "identifiers": {(DOMAIN, self._entry_id)},
-            "name": self.name,
-            "manufacturer": "Nicolas",
+            "name": "Monitor",
+            "manufacturer": "iDrunK",
             "model": "Heat Monitor",
         }
 
